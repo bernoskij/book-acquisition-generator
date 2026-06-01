@@ -7,7 +7,7 @@ and provides their content as context for the AI recommendation.
 
 from pathlib import Path
 
-import fitz  # PyMuPDF
+from pypdf import PdfReader
 
 
 REFERENCE_DIR = Path(__file__).parent / "reference_docs"
@@ -15,11 +15,10 @@ REFERENCE_DIR = Path(__file__).parent / "reference_docs"
 
 def extract_text_from_pdf(pdf_path: Path) -> str:
     """Extract all text from a PDF file."""
-    doc = fitz.open(str(pdf_path))
+    reader = PdfReader(str(pdf_path))
     text = ""
-    for page in doc:
-        text += page.get_text()
-    doc.close()
+    for page in reader.pages:
+        text += page.extract_text() or ""
     return text.strip()
 
 
