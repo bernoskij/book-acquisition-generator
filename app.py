@@ -295,6 +295,162 @@ if generate_btn:
         use_container_width=True,
     )
 
+    # ─── Evaluation Section ───────────────────────────────────────────────────
+
+    st.subheader("🔬 Evaluation: Output Variability (10 Runs)")
+    st.caption("Runs the pipeline 10 times with the same inputs to measure how much the AI-driven outputs vary.")
+
+    if use_ai and api_key:
+        run_eval = st.button("Run Variability Evaluation", use_container_width=True)
+        if run_eval:
+            import statistics
+
+            eval_advances = []
+            eval_rois = []
+            eval_units = []
+            eval_contributions = []
+            eval_verdicts = []
+
+            progress = st.progress(0, text="Running evaluation...")
+
+            for run in range(10):
+                progress.progress((run + 1) / 10, text=f"Run {run + 1}/10...")
+
+                # AI advance
+                try:
+                    from ai_services import recommend_advance, generate_forecast_assumptions
+                    run_advance = recommend_advance(
+                        title=title, author=author, genre=genre,
+                        comp_summary={
+                            "median_units": comp_median_units,
+                            "avg_units": comp_avg_units,
+                            "min_units": comp_min_units,
+                            "max_units": comp_max_units,
+                            "median_revenue": comp_median_revenue,
+                            "avg_revenue": comp_avg_revenue,
+                            "comp_titles": [
+                                {"title": b.comp.title, "author": b.comp.author,
+                                 "genre": b.comp.genre, "units": b.comp.total_units_sold,
+                                 "revenue": b.comp.net_revenue, "similarity": b.similarity_score}
+                                for b in selected_books
+                            ],
+                        },
+                        book_description=new_book_content,
+                    )
+                    eval_advances.append(run_advance)
+
+                    # AI forecast
+                    run_assumptions = generate_forecast_assumptions(
+                        title=title, author=author, genre=genre,
+                        comp_summary={
+                            "median_units": comp_median_units,
+                            "avg_units": comp_avg_units,
+                            "min_units": comp_min_units,
+                            "max_units": comp_max_units,
+                            "median_revenue": comp_median_revenue,
+                            "avg_revenue": comp_avg_revenue,
+                            "comp_titles": [
+                                {"title": b.comp.title, "author": b.comp.author,
+                                 "genre": b.comp.genre, "units": b.comp.total_units_sold,
+                                 "revenue": b.comp.net_revenue, "similarity": b.similarity_score}
+                                for b in selected_books
+                            ],
+                        },
+                        book_description=new_book_content,
+                        advance=run_advance,
+                    )
+
+                    run_params = AcquisitionParameters(
+                        title=title, author=author, genre=genre, advance=run_advance,
+                        list_price_hc=list_price_hc, list_price_pb=list_price_pb,
+                        first_print_run=first_print_run, marketing_budget=marketing_budget,
+                    )
+                    run_forecast = build_forecast(run_params, comps, ai_assumptions=run_assumptions)
+
+                    eval_rois.append(run_forecast.roi_percent)
+                    eval_units.append(run_forecast.total_units)
+                    eval_contributions.append(run_forecast.total_contribution)
+
+                    # Verdict
+                    if run_forecast.roi_percent > 50:
+                        eval_verdicts.append("STRONG ACQUIRE")
+                    elif run_forecast.roi_percent > 20:
+                        eval_verdicts.append("ACQUIRE")
+                    elif run_forecast.roi_percent > 0:
+                        eval_verdicts.append("CAUTION")
+                    else:
+                        eval_verdicts.append("PASS")
+
+                except Exception as e:
+                    st.warning(f"Run {run+1} failed: {e}")
+
+            progress.empty()
+
+            if eval_advances:
+                st.markdown("---")
+
+                # Summary metrics
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    st.markdown("**Advance**")
+                    adv_mean = statistics.mean(eval_advances)
+                    adv_std = statistics.stdev(eval_advances) if len(eval_advances) > 1 else 0
+                    st.metric("Mean", f"${adv_mean:,.0f}")
+                    st.metric("Std Dev", f"${adv_std:,.0f}")
+                    st.metric("Range", f"${min(eval_advances):,.0f} – ${max(eval_advances):,.0f}")
+
+                with col2:
+                    st.markdown("**ROI**")
+                    roi_mean = statistics.mean(eval_rois)
+                    roi_std = statistics.stdev(eval_rois) if len(eval_rois) > 1 else 0
+                    st.metric("Mean", f"{roi_mean:.1f}%")
+                    st.metric("Std Dev", f"{roi_std:.1f}%")
+                    st.metric("Range", f"{min(eval_rois):.0f}% – {max(eval_rois):.0f}%")
+
+                with col3:
+                    st.markdown("**Total Units (5yr)**")
+                    units_mean = statistics.mean(eval_units)
+                    units_std = statistics.stdev(eval_units) if len(eval_units) > 1 else 0
+                    st.metric("Mean", f"{units_mean:,.0f}")
+                    st.metric("Std Dev", f"{units_std:,.0f}")
+                    st.metric("Range", f"{min(eval_units):,} – {max(eval_units):,}")
+
+                # Verdict distribution
+                st.markdown("**Recommendation Verdict Distribution:**")
+                verdict_counts = {}
+                for v in eval_verdicts:
+                    verdict_counts[v] = verdict_counts.get(v, 0) + 1
+                for verdict, count in sorted(verdict_counts.items(), key=lambda x: -x[1]):
+                    pct = count / len(eval_verdicts) * 100
+                    st.write(f"- {verdict}: {count}/10 ({pct:.0f}%)")
+
+                # Run-by-run table
+                st.markdown("**Run-by-Run Results:**")
+                run_data = []
+                for i in range(len(eval_advances)):
+                    run_data.append({
+                        "Run": i + 1,
+                        "Advance": f"${eval_advances[i]:,.0f}",
+                        "Units (5yr)": f"{eval_units[i]:,}",
+                        "ROI": f"{eval_rois[i]:.1f}%",
+                        "Contribution": f"${eval_contributions[i]:,.0f}",
+                        "Verdict": eval_verdicts[i],
+                    })
+                st.dataframe(run_data, use_container_width=True)
+
+                # Coefficient of variation
+                adv_cv = (adv_std / adv_mean * 100) if adv_mean > 0 else 0
+                roi_cv = (roi_std / roi_mean * 100) if roi_mean > 0 else 0
+                st.markdown(f"""
+                **Variability Summary:**
+                - Advance CV: {adv_cv:.1f}% (coefficient of variation)
+                - ROI CV: {roi_cv:.1f}%
+                - Verdict agreement: {max(verdict_counts.values())}/10 runs agree
+                """)
+    else:
+        st.info("Enable AI and provide an API key to run the evaluation.")
+
 
 def _write_fallback_recommendation(forecast):
     """Rule-based fallback recommendation."""
