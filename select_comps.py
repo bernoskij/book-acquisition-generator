@@ -11,8 +11,13 @@ from datetime import date
 from pathlib import Path
 
 import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+
+try:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics.pairwise import cosine_similarity
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
 
 from generate_book_content import generate_book_content
 from generate_comps import CompTitle, generate_comp_title, GENRES
@@ -193,17 +198,26 @@ def select_comps_by_similarity(
 
     except (EnvironmentError, Exception) as e:
         print(f"    Embeddings unavailable ({type(e).__name__}), falling back to TF-IDF...")
-        # Fallback to TF-IDF
-        all_texts = [new_book_content] + [book.content for book in pool]
-        vectorizer = TfidfVectorizer(
-            max_features=5000,
-            stop_words="english",
-            ngram_range=(1, 2),
-            min_df=1,
-            max_df=0.95,
-        )
-        tfidf_matrix = vectorizer.fit_transform(all_texts)
-        similarities = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:]).flatten()
+        # Fallback to TF-IDF if sklearn is available, otherwise simple word overlap
+        if SKLEARN_AVAILABLE:
+            all_texts = [new_book_content] + [book.content for book in pool]
+            vectorizer = TfidfVectorizer(
+                max_features=5000,
+                stop_words="english",
+                ngram_range=(1, 2),
+                min_df=1,
+                max_df=0.95,
+            )
+            tfidf_matrix = vectorizer.fit_transform(all_texts)
+            similarities = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:]).flatten()
+        else:
+            # Simple word-overlap fallback (no dependencies)
+            print("    sklearn not available, using basic word overlap...")
+            new_words = set(new_book_content.lower().split())
+            similarities = np.array([
+                len(new_words & set(book.content.lower().split())) / max(len(new_words), 1)
+                for book in pool
+            ])
 
     # Assign scores to pool books
     for i, score in enumerate(similarities):

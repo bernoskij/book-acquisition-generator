@@ -23,8 +23,13 @@ from pathlib import Path
 import numpy as np
 from dotenv import load_dotenv
 from openai import OpenAI
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine
+
+try:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
 
 from financial_forecast import AcquisitionParameters, build_forecast
 from rag import load_reference_docs
