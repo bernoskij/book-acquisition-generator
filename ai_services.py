@@ -214,10 +214,11 @@ COMP ANALYSIS:
 
 GUIDELINES:
 - Industry standard: advances are typically 30-70% of projected net revenue
-- Use median comp net revenue as the baseline (more conservative than average)
-- Adjust up for strong similarity scores, favorable genre trends, or breakout potential
-- Adjust down for wide performance spread, niche appeal, or debut authors
-- Round to a clean number (nearest $5,000 or $25,000 depending on scale)
+- Consider where THIS specific book falls within the comp range — don't just use the median
+- Factor in: commercial appeal, genre market size, author platform, similarity scores
+- A book with strong breakout potential warrants a higher advance (closer to 60-70% of projected revenue)
+- A more literary or niche title warrants a conservative advance (30-40% of projected revenue)
+- Consider the risk: wide comp spread = more uncertainty = lower advance
 
 Respond with ONLY a single number representing your recommended advance in dollars.
 No dollar sign, no commas, no explanation. Just the number.
@@ -229,7 +230,7 @@ Example: 175000"""
             {"role": "system", "content": "You are a senior acquisitions editor. Respond with only a number."},
             {"role": "user", "content": prompt},
         ],
-        temperature=0.3,  # Lower temperature for more consistent numeric output
+        temperature=0.6,  # Moderate temperature for varied but reasonable recommendations
         max_tokens=20,
     )
 
