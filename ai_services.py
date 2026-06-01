@@ -75,7 +75,98 @@ def compute_similarity(query_embedding: np.ndarray, corpus_embeddings: np.ndarra
     return similarities
 
 
-# ─── Recommendation ───────────────────────────────────────────────────────────
+# ─── Forecast Assumptions ─────────────────────────────────────────────────────
+
+
+def generate_forecast_assumptions(
+    title: str,
+    author: str,
+    genre: str,
+    comp_summary: dict,
+    book_description: str,
+    advance: float,
+) -> dict:
+    """
+    Use an LLM to generate forecast assumptions (unit projections, format split,
+    marketing allocation) based on the book and comp data.
+
+    Returns a dict with:
+        - projected_units: [y1, y2, y3, y4, y5]
+        - marketing_split: [y1_pct, y2_pct, y3_pct, y4_pct, y5_pct]
+        - format_split: {"hardcover": pct, "paperback": pct, "ebook": pct, "audio": pct}
+        - rationale: brief explanation of assumptions
+    """
+    client = _get_client()
+
+    comp_details = ""
+    for i, comp in enumerate(comp_summary.get("comp_titles", []), 1):
+        comp_details += (
+            f"  {i}. \"{comp['title']}\" ({comp['genre']}) — "
+            f"{comp['units']:,} units, ${comp['revenue']:,.0f} net revenue, "
+            f"similarity: {comp['similarity']:.0%}\n"
+        )
+
+    prompt = f"""You are a publishing financial analyst projecting sales for a book acquisition.
+Based on the comparable titles and book description, generate realistic 5-year unit sales projections.
+
+TITLE: "{title}" by {author}
+GENRE: {genre}
+ADVANCE: ${advance:,.0f}
+
+BOOK DESCRIPTION:
+{book_description[:600]}
+
+COMPARABLE TITLES:
+{comp_details}
+COMP STATS:
+- Median units sold: {comp_summary['median_units']:,}
+- Average units sold: {comp_summary['avg_units']:,}
+- Range: {comp_summary['min_units']:,} – {comp_summary['max_units']:,}
+
+INSTRUCTIONS:
+- Project total 5-year unit sales based on where this title likely falls within the comp range
+- Consider the book's commercial appeal, genre trends, and similarity to successful comps
+- Year 1 should be 55-70% of total, with natural decay in subsequent years
+- Be specific — don't just use the median. Reason about THIS book's positioning.
+- Format split should reflect genre norms (literary fiction = more hardcover, romance = more ebook, etc.)
+
+Respond ONLY with this JSON (no other text):
+{{"projected_units": [Y1, Y2, Y3, Y4, Y5], "marketing_split": [0.55, 0.25, 0.10, 0.05, 0.05], "format_split": {{"hardcover": 0.30, "paperback": 0.15, "ebook": 0.30, "audio": 0.25}}, "rationale": "one sentence explaining your projection"}}"""
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a publishing financial analyst. Respond only with JSON. Be realistic and specific."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.8,  # Higher temperature for varied but realistic projections
+        max_tokens=300,
+    )
+
+    raw = response.choices[0].message.content.strip()
+    try:
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        import json
+        result = json.loads(raw)
+        # Validate structure
+        if "projected_units" not in result or len(result["projected_units"]) != 5:
+            raise ValueError("Invalid projected_units")
+        return result
+    except (json.JSONDecodeError, ValueError, KeyError):
+        # Fallback to median-based projection
+        median = comp_summary["median_units"]
+        return {
+            "projected_units": [int(median * 0.6), int(median * 0.2), int(median * 0.1), int(median * 0.06), int(median * 0.04)],
+            "marketing_split": [0.60, 0.25, 0.05, 0.05, 0.05],
+            "format_split": {"hardcover": 0.30, "paperback": 0.15, "ebook": 0.30, "audio": 0.25},
+            "rationale": "Fallback: median-based projection (LLM response could not be parsed)",
+        }
+
+
+# ─── Advance Recommendation ──────────────────────────────────────────────────
 
 
 def recommend_advance(

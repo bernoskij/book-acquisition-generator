@@ -147,9 +147,25 @@ def create_acquisition_document(
         marketing_budget=marketing_budget,
     )
 
-    # 6. Build financial forecast
+    # 6. Build financial forecast (with AI-generated assumptions if available)
+    ai_assumptions = None
+    try:
+        from ai_services import generate_forecast_assumptions
+
+        print("Generating AI forecast assumptions...")
+        ai_assumptions = generate_forecast_assumptions(
+            title=title, author=author, genre=genre,
+            comp_summary=comp_summary_for_advance,
+            book_description=new_book_content,
+            advance=advance,
+        )
+        print(f"  AI projected units: {[f'{u:,}' for u in ai_assumptions['projected_units']]}")
+        print(f"  Rationale: {ai_assumptions.get('rationale', 'N/A')}")
+    except Exception as e:
+        print(f"  AI forecast assumptions unavailable ({e}), using median-based projection.")
+
     print("\nBuilding 5-year financial forecast...")
-    forecast = build_forecast(params, comps)
+    forecast = build_forecast(params, comps, ai_assumptions=ai_assumptions)
 
     # 7. Generate AI recommendation
     recommendation = None

@@ -47,43 +47,50 @@ class ForecastResult:
     payback_year: int  # Year in which cumulative contribution exceeds advance
 
 
-def build_forecast(params: AcquisitionParameters, comps: list[CompTitle]) -> ForecastResult:
+def build_forecast(params: AcquisitionParameters, comps: list[CompTitle], ai_assumptions: dict | None = None) -> ForecastResult:
     """
     Build a 5-year financial forecast based on comp title performance.
 
-    Uses median comp performance as the base case, with adjustments
-    for the specific title's positioning.
+    If ai_assumptions is provided (from LLM), uses those projections.
+    Otherwise falls back to median comp performance as the base case.
     """
-    # Extract comp metrics
-    comp_total_units = [c.total_units_sold for c in comps]
-    comp_y1_ratios = [c.units_year1 / c.total_units_sold for c in comps]
-    comp_y2_ratios = [c.units_year2 / c.total_units_sold for c in comps]
-    comp_y3_ratios = [c.units_year3 / c.total_units_sold for c in comps]
+    if ai_assumptions and "projected_units" in ai_assumptions:
+        # Use LLM-generated projections
+        projected_units = [int(u) for u in ai_assumptions["projected_units"]]
+        format_split = ai_assumptions.get("format_split", {})
+        hc_weight = format_split.get("hardcover", 0.30)
+        pb_weight = format_split.get("paperback", 0.15)
+        ebook_weight = format_split.get("ebook", 0.30)
+        audio_weight = format_split.get("audio", 0.25)
+        marketing_split = ai_assumptions.get("marketing_split", [0.60, 0.25, 0.05, 0.05, 0.05])
+    else:
+        # Fallback: deterministic median-based projection
+        comp_total_units = [c.total_units_sold for c in comps]
+        comp_y1_ratios = [c.units_year1 / c.total_units_sold for c in comps]
+        comp_y2_ratios = [c.units_year2 / c.total_units_sold for c in comps]
+        comp_y3_ratios = [c.units_year3 / c.total_units_sold for c in comps]
 
-    # Use median as base projection (more conservative than mean)
-    median_total = int(np.median(comp_total_units))
-    median_y1_ratio = np.median(comp_y1_ratios)
-    median_y2_ratio = np.median(comp_y2_ratios)
-    median_y3_ratio = np.median(comp_y3_ratios)
+        median_total = int(np.median(comp_total_units))
+        median_y1_ratio = np.median(comp_y1_ratios)
+        median_y2_ratio = np.median(comp_y2_ratios)
+        median_y3_ratio = np.median(comp_y3_ratios)
 
-    # Project 5 years: years 4-5 use declining tail
-    y1_units = int(median_total * median_y1_ratio)
-    y2_units = int(median_total * median_y2_ratio)
-    y3_units = int(median_total * median_y3_ratio)
-    y4_units = int(y3_units * 0.5)  # Tail decay
-    y5_units = int(y4_units * 0.4)
+        y1_units = int(median_total * median_y1_ratio)
+        y2_units = int(median_total * median_y2_ratio)
+        y3_units = int(median_total * median_y3_ratio)
+        y4_units = int(y3_units * 0.5)
+        y5_units = int(y4_units * 0.4)
+        projected_units = [y1_units, y2_units, y3_units, y4_units, y5_units]
 
-    projected_units = [y1_units, y2_units, y3_units, y4_units, y5_units]
+        hc_weight = 0.30
+        pb_weight = 0.15
+        ebook_weight = 0.30
+        audio_weight = 0.25
+        marketing_split = [0.60, 0.25, 0.05, 0.05, 0.05]
 
     # Revenue model
     retailer_discount = 0.50  # Standard trade discount
     return_rate = 0.20  # Industry average returns
-
-    # Blended price across formats (weighted by typical format split)
-    hc_weight = 0.30
-    pb_weight = 0.15  # Paperback comes later, mostly years 2+
-    ebook_weight = 0.30
-    audio_weight = 0.25
 
     blended_list_price = (
         params.list_price_hc * hc_weight
@@ -125,13 +132,8 @@ def build_forecast(params: AcquisitionParameters, comps: list[CompTitle]) -> For
         roy = net * blended_royalty
         royalties.append(round(roy, 2))
 
-        # Marketing (front-loaded)
-        if i == 0:
-            mktg = params.marketing_budget * 0.60
-        elif i == 1:
-            mktg = params.marketing_budget * 0.25
-        else:
-            mktg = params.marketing_budget * 0.05
+        # Marketing (using split from assumptions)
+        mktg = params.marketing_budget * marketing_split[i]
         marketing.append(round(mktg, 2))
 
         # Contribution

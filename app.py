@@ -156,13 +156,41 @@ if generate_btn:
 
     # ─── Financial Forecast ───────────────────────────────────────────────────
 
+    ai_assumptions = None
+    if use_ai and api_key:
+        with st.spinner("Generating AI forecast assumptions..."):
+            try:
+                from ai_services import generate_forecast_assumptions
+                ai_assumptions = generate_forecast_assumptions(
+                    title=title, author=author, genre=genre,
+                    comp_summary={
+                        "median_units": comp_median_units,
+                        "avg_units": comp_avg_units,
+                        "min_units": comp_min_units,
+                        "max_units": comp_max_units,
+                        "median_revenue": comp_median_revenue,
+                        "avg_revenue": comp_avg_revenue,
+                        "comp_titles": [
+                            {"title": b.comp.title, "author": b.comp.author,
+                             "genre": b.comp.genre, "units": b.comp.total_units_sold,
+                             "revenue": b.comp.net_revenue, "similarity": b.similarity_score}
+                            for b in selected_books
+                        ],
+                    },
+                    book_description=new_book_content,
+                    advance=advance,
+                )
+                st.caption(f"📈 AI forecast rationale: {ai_assumptions.get('rationale', 'N/A')}")
+            except Exception as e:
+                st.caption(f"Using median-based projection (AI unavailable: {e})")
+
     with st.spinner("Building 5-year financial forecast..."):
         params = AcquisitionParameters(
             title=title, author=author, genre=genre, advance=advance,
             list_price_hc=list_price_hc, list_price_pb=list_price_pb,
             first_print_run=first_print_run, marketing_budget=marketing_budget,
         )
-        forecast = build_forecast(params, comps)
+        forecast = build_forecast(params, comps, ai_assumptions=ai_assumptions)
 
     st.subheader("💹 5-Year Financial Forecast")
 
