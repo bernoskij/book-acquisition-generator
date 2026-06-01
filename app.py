@@ -76,6 +76,10 @@ with st.sidebar:
 
 # ─── Main Area ────────────────────────────────────────────────────────────────
 
+# Initialize session state
+if "generated" not in st.session_state:
+    st.session_state.generated = False
+
 if generate_btn:
     # Set API key if provided
     if use_ai and api_key:
@@ -86,16 +90,39 @@ if generate_btn:
         desc = book_description.strip() if book_description.strip() else None
         new_book_content = generate_new_book_content(title, author, genre, desc)
 
-    st.subheader("📖 Book Content")
-    with st.expander("View generated/provided content", expanded=False):
-        st.write(new_book_content)
-
     with st.spinner("Loading comp library and selecting comps..."):
         pool = generate_title_pool(genre, pool_size=30)
         selected_books = select_comps_by_similarity(new_book_content, pool, num_comps=5)
         comps = [b.comp for b in selected_books]
 
-    # ─── Comp Titles ──────────────────────────────────────────────────────────
+    # Store in session state
+    st.session_state.generated = True
+    st.session_state.new_book_content = new_book_content
+    st.session_state.selected_books = selected_books
+    st.session_state.comps = comps
+    st.session_state.use_ai = use_ai
+    st.session_state.api_key = api_key
+    st.session_state.title = title
+    st.session_state.author = author
+    st.session_state.genre = genre
+    st.session_state.list_price_hc = list_price_hc
+    st.session_state.list_price_pb = list_price_pb
+    st.session_state.first_print_run = first_print_run
+    st.session_state.marketing_budget = marketing_budget
+
+# Set API key from state if available
+if st.session_state.get("api_key"):
+    import os
+    os.environ["OPENAI_API_KEY"] = st.session_state.api_key
+
+if st.session_state.generated:
+    new_book_content = st.session_state.new_book_content
+    selected_books = st.session_state.selected_books
+    comps = st.session_state.comps
+
+    st.subheader("📖 Book Content")
+    with st.expander("View generated/provided content", expanded=False):
+        st.write(new_book_content)
 
     st.subheader("📊 Comparable Titles (Selected by Similarity)")
 
