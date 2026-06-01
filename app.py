@@ -62,7 +62,15 @@ with st.sidebar:
     st.header("Settings")
     use_ai = st.checkbox("Use AI (OpenAI API)", value=True)
     if use_ai:
-        api_key = st.text_input("OpenAI API Key", type="password", help="Needed for embeddings and AI recommendation")
+        # Try to get key from Streamlit secrets first, then allow manual input
+        default_key = ""
+        try:
+            default_key = st.secrets.get("OPENAI_API_KEY", "")
+        except Exception:
+            pass
+        api_key = st.text_input("OpenAI API Key", value=default_key, type="password", help="Needed for embeddings and AI recommendation")
+    else:
+        api_key = ""
 
     generate_btn = st.button("🚀 Generate Acquisition Document", type="primary", use_container_width=True)
 
@@ -184,6 +192,7 @@ if generate_btn:
 
     st.subheader("📝 Editorial Recommendation")
 
+    recommendation = None
     if use_ai and api_key:
         with st.spinner("Generating AI editorial recommendation..."):
             try:
@@ -244,7 +253,7 @@ if generate_btn:
             pool_size=30,
             generated_date=date.today().isoformat(),
             output_path=str(temp_path),
-            recommendation=recommendation if (use_ai and api_key) else None,
+            recommendation=recommendation,
         )
 
         pdf_bytes = temp_path.read_bytes()
