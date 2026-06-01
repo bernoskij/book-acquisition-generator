@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Acquisition Proposal – {{ params.title }}</title>
+<style>
+    @page {
+        size: letter;
+        margin: 1in 0.75in;
+        @bottom-center {
+            content: "Page " counter(page) " of " counter(pages);
+            font-size: 9px;
+            color: #666;
+        }
+    }
+
+    body {
+        font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+        font-size: 11px;
+        line-height: 1.5;
+        color: #1a1a1a;
+    }
+
+    h1 {
+        font-size: 22px;
+        color: #1a1a1a;
+        border-bottom: 3px solid #2c3e50;
+        padding-bottom: 8px;
+        margin-bottom: 20px;
+    }
+
+    h2 {
+        font-size: 16px;
+        color: #2c3e50;
+        border-bottom: 1px solid #bdc3c7;
+        padding-bottom: 5px;
+        margin-top: 30px;
+        margin-bottom: 12px;
+    }
+
+    h3 {
+        font-size: 13px;
+        color: #34495e;
+        margin-top: 18px;
+        margin-bottom: 8px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 10px;
+    }
+
+    th {
+        background-color: #2c3e50;
+        color: white;
+        padding: 8px 6px;
+        text-align: left;
+        font-weight: 600;
+    }
+
+    td {
+        padding: 6px;
+        border-bottom: 1px solid #ecf0f1;
+    }
+
+    tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+
+    .info-table td:first-child {
+        font-weight: 600;
+        width: 180px;
+        color: #2c3e50;
+    }
+
+    .description {
+        background-color: #f8f9fa;
+        border-left: 4px solid #2c3e50;
+        padding: 12px 16px;
+        margin: 15px 0;
+        font-style: italic;
+        font-size: 10.5px;
+        line-height: 1.6;
+    }
+
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin: 12px 0;
+    }
+
+    .metric-item {
+        padding: 4px 0;
+    }
+
+    .metric-label {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    .recommendation {
+        padding: 16px;
+        margin: 20px 0;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+
+    .recommendation.strong-acquire {
+        background-color: #d4edda;
+        border: 1px solid #28a745;
+    }
+
+    .recommendation.acquire {
+        background-color: #d1ecf1;
+        border: 1px solid #17a2b8;
+    }
+
+    .recommendation.caution {
+        background-color: #fff3cd;
+        border: 1px solid #ffc107;
+    }
+
+    .recommendation.pass {
+        background-color: #f8d7da;
+        border: 1px solid #dc3545;
+    }
+
+    .recommendation strong {
+        font-size: 13px;
+    }
+
+    .methodology {
+        font-size: 9.5px;
+        color: #555;
+        margin-top: 30px;
+        padding-top: 15px;
+        border-top: 1px solid #ddd;
+    }
+
+    .methodology ul {
+        padding-left: 18px;
+    }
+
+    .footer {
+        font-size: 9px;
+        color: #888;
+        text-align: center;
+        margin-top: 30px;
+        padding-top: 10px;
+        border-top: 1px solid #eee;
+    }
+
+    .similarity-bar {
+        display: inline-block;
+        height: 8px;
+        background-color: #2c3e50;
+        border-radius: 2px;
+        margin-left: 4px;
+        vertical-align: middle;
+    }
+
+    .section-break {
+        page-break-before: auto;
+    }
+</style>
+</head>
+<body>
+
+<h1>Acquisition Proposal</h1>
+
+<h2>Title Information</h2>
+<table class="info-table">
+    <tr><td>Title</td><td>{{ params.title }}</td></tr>
+    <tr><td>Author</td><td>{{ params.author }}</td></tr>
+    <tr><td>Genre</td><td>{{ params.genre }}</td></tr>
+    <tr><td>Proposed Advance</td><td>${{ "{:,.0f}".format(params.advance) }}</td></tr>
+    <tr><td>First Print Run</td><td>{{ "{:,}".format(params.first_print_run) }}</td></tr>
+    <tr><td>Marketing Budget</td><td>${{ "{:,.0f}".format(params.marketing_budget) }}</td></tr>
+</table>
+
+<h3>Book Description</h3>
+<div class="description">
+    {{ new_book_content[:600] }}{% if new_book_content|length > 600 %}...{% endif %}
+</div>
+
+<h2>Comparable Titles</h2>
+<p style="font-size: 10px; color: #555;">
+    {{ selected_books|length }} titles selected from a pool of {{ pool_size }} candidates based on content similarity (TF-IDF cosine).
+</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Title</th>
+            <th>Author</th>
+            <th>Similarity</th>
+            <th>Imprint</th>
+            <th>Pub Date</th>
+            <th>Total Units</th>
+            <th>Net Revenue</th>
+            <th>NYT Wks</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for book in selected_books %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ book.comp.title }}</td>
+            <td>{{ book.comp.author }}</td>
+            <td>{{ "%.1f"|format(book.similarity_score * 100) }}%</td>
+            <td>{{ book.comp.imprint }}</td>
+            <td>{{ book.comp.pub_date }}</td>
+            <td>{{ "{:,}".format(book.comp.total_units_sold) }}</td>
+            <td>${{ "{:,.0f}".format(book.comp.net_revenue) }}</td>
+            <td>{{ book.comp.bestseller_weeks }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<h3>Comp Analysis Summary</h3>
+<div class="metrics-grid">
+    <div class="metric-item"><span class="metric-label">Median units sold:</span> {{ "{:,}".format(comp_median_units) }}</div>
+    <div class="metric-item"><span class="metric-label">Average units sold:</span> {{ "{:,}".format(comp_avg_units) }}</div>
+    <div class="metric-item"><span class="metric-label">Range:</span> {{ "{:,}".format(comp_min_units) }} – {{ "{:,}".format(comp_max_units) }}</div>
+    <div class="metric-item"><span class="metric-label">Median net revenue:</span> ${{ "{:,.0f}".format(comp_median_revenue) }}</div>
+    <div class="metric-item"><span class="metric-label">Avg similarity score:</span> {{ "%.1f"|format(selected_books | map(attribute='similarity_score') | list | sum / selected_books|length * 100) }}%</div>
+</div>
+
+<h2 class="section-break">Financial Forecast (5-Year P&L)</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Year</th>
+            <th>Units</th>
+            <th>Gross Revenue</th>
+            <th>Net Revenue</th>
+            <th>COGS</th>
+            <th>Royalties</th>
+            <th>Marketing</th>
+            <th>Contribution</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for i in range(5) %}
+        <tr>
+            <td>Year {{ i + 1 }}</td>
+            <td>{{ "{:,}".format(forecast.projected_units_year[i]) }}</td>
+            <td>${{ "{:,.0f}".format(forecast.gross_revenue_year[i]) }}</td>
+            <td>${{ "{:,.0f}".format(forecast.net_revenue_year[i]) }}</td>
+            <td>${{ "{:,.0f}".format(forecast.cogs_year[i]) }}</td>
+            <td>${{ "{:,.0f}".format(forecast.royalties_year[i]) }}</td>
+            <td>${{ "{:,.0f}".format(forecast.marketing_year[i]) }}</td>
+            <td>${{ "{:,.0f}".format(forecast.contribution_year[i]) }}</td>
+        </tr>
+    {% endfor %}
+        <tr style="font-weight: bold; border-top: 2px solid #2c3e50;">
+            <td>Total</td>
+            <td>{{ "{:,}".format(forecast.total_units) }}</td>
+            <td>${{ "{:,.0f}".format(forecast.gross_revenue_year | sum) }}</td>
+            <td>${{ "{:,.0f}".format(forecast.total_net_revenue) }}</td>
+            <td>${{ "{:,.0f}".format(forecast.cogs_year | sum) }}</td>
+            <td>${{ "{:,.0f}".format(forecast.royalties_year | sum) }}</td>
+            <td>${{ "{:,.0f}".format(forecast.marketing_year | sum) }}</td>
+            <td>${{ "{:,.0f}".format(forecast.total_contribution) }}</td>
+        </tr>
+    </tbody>
+</table>
+
+<h3>Summary Metrics</h3>
+<table class="info-table">
+    <tr><td>Total Projected Units (5yr)</td><td>{{ "{:,}".format(forecast.total_units) }}</td></tr>
+    <tr><td>Total Net Revenue (5yr)</td><td>${{ "{:,.0f}".format(forecast.total_net_revenue) }}</td></tr>
+    <tr><td>Total Contribution (5yr)</td><td>${{ "{:,.0f}".format(forecast.total_contribution) }}</td></tr>
+    <tr><td>Advance</td><td>${{ "{:,.0f}".format(forecast.advance) }}</td></tr>
+    <tr><td>Breakeven Units</td><td>{{ "{:,}".format(forecast.breakeven_units) }}</td></tr>
+    <tr><td>ROI</td><td>{{ forecast.roi_percent }}%</td></tr>
+    <tr><td>Payback Year</td><td>Year {{ forecast.payback_year }}</td></tr>
+</table>
+
+<h2>Recommendation</h2>
+
+{% if forecast.roi_percent > 50 %}
+<div class="recommendation strong-acquire">
+    <strong>STRONG ACQUIRE.</strong> The projected ROI of {{ forecast.roi_percent }}% significantly exceeds the portfolio threshold. Comp performance supports the proposed advance, with payback expected in Year {{ forecast.payback_year }}.
+</div>
+{% elif forecast.roi_percent > 20 %}
+<div class="recommendation acquire">
+    <strong>ACQUIRE.</strong> The projected ROI of {{ forecast.roi_percent }}% meets portfolio targets. The advance is supported by comp data, with breakeven at {{ "{:,}".format(forecast.breakeven_units) }} units.
+</div>
+{% elif forecast.roi_percent > 0 %}
+<div class="recommendation caution">
+    <strong>ACQUIRE WITH CAUTION.</strong> The projected ROI of {{ forecast.roi_percent }}% is modest. Consider negotiating a lower advance or phased payout to reduce risk.
+</div>
+{% else %}
+<div class="recommendation pass">
+    <strong>PASS or RENEGOTIATE.</strong> At the proposed advance of ${{ "{:,.0f}".format(forecast.advance) }}, this title is projected to generate negative returns. Recommend reducing the advance to ${{ "{:,.0f}".format(forecast.total_contribution * 0.7) }} or passing.
+</div>
+{% endif %}
+
+<div class="methodology">
+    <h3>Methodology</h3>
+    <ul>
+        <li><strong>Pool generation:</strong> {{ pool_size }} synthetic titles generated with genre-specific content (200–500 words each)</li>
+        <li><strong>Comp selection:</strong> TF-IDF vectorization with unigram/bigram features, cosine similarity scoring</li>
+        <li><strong>Forecast basis:</strong> Median comp performance used as base case projection</li>
+        <li><strong>Revenue model:</strong> Blended format pricing (HC/PB/ebook/audio), standard trade discount (50%), industry return rate (20%)</li>
+    </ul>
+</div>
+
+<div class="footer">
+    Generated on {{ generated_date }} | Based on {{ selected_books|length }} comparable titles selected from {{ pool_size }} candidates
+</div>
+
+</body>
+</html>
