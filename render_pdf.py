@@ -34,6 +34,11 @@ class AcquisitionPDF(FPDF):
         super().__init__()
         self.set_auto_page_break(auto=True, margin=20)
 
+    def normalize_text(self, text):
+        """Override to sanitize unicode before PDF encoding."""
+        text = _sanitize_text(text)
+        return super().normalize_text(text)
+
     def header(self):
         if self.page_no() > 1:
             self.set_font("Helvetica", "I", 8)
@@ -196,7 +201,7 @@ def render_acquisition_pdf(
     pdf.sub_title("Book Description")
     pdf.set_font("Helvetica", "I", 9)
     pdf.set_text_color(60, 60, 60)
-    description = new_book_content[:800]
+    description = _sanitize_text(new_book_content[:800])
     if len(new_book_content) > 800:
         description += "..."
     pdf.multi_cell(0, 4.5, description)
