@@ -141,11 +141,85 @@ with st.sidebar:
 
     generate_btn = st.button("🚀 Generate Acquisition Document", type="primary", use_container_width=True)
 
+    st.markdown("---")
+    st.markdown("### 📚 Comp Library")
+    show_library = st.button("Browse All 30 Comp Titles", use_container_width=True)
+
 # ─── Main Area ────────────────────────────────────────────────────────────────
 
 # Initialize session state
 if "generated" not in st.session_state:
     st.session_state.generated = False
+if "show_library" not in st.session_state:
+    st.session_state.show_library = False
+
+# Handle library button
+if show_library:
+    st.session_state.show_library = not st.session_state.show_library
+
+# ─── Comp Library Viewer ──────────────────────────────────────────────────────
+
+if st.session_state.show_library:
+    import json
+
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+    st.subheader("📚 Comp Title Library (30 Titles)")
+    st.caption("These are the fixed synthetic titles used as the comparison pool. Each has content, sales data, and financial performance.")
+
+    library_path = Path(__file__).parent / "comp_library"
+    if library_path.exists():
+        json_files = sorted(library_path.glob("*.json"))
+
+        # Summary table
+        library_data = []
+        for f in json_files:
+            data = json.loads(f.read_text(encoding="utf-8"))
+            library_data.append({
+                "#": data.get("id", ""),
+                "Title": data["title"],
+                "Author": data["author"],
+                "Genre": data["genre"],
+                "Units Sold": f"{data['total_units_sold']:,}",
+                "Net Revenue": f"${data['net_revenue']:,.0f}",
+                "NYT Weeks": data["bestseller_weeks"],
+                "Pub Date": data["pub_date"],
+            })
+
+        st.dataframe(library_data, use_container_width=True, height=400)
+
+        # Expandable detail view
+        st.markdown("#### Title Details")
+        selected_title = st.selectbox(
+            "Select a title to view details:",
+            [f"{d['#']}. {d['Title']} by {d['Author']}" for d in library_data],
+        )
+
+        if selected_title:
+            idx = int(selected_title.split(".")[0]) - 1
+            detail_file = json_files[idx]
+            detail = json.loads(detail_file.read_text(encoding="utf-8"))
+
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"**Title:** {detail['title']}")
+                st.markdown(f"**Author:** {detail['author']}")
+                st.markdown(f"**Genre:** {detail['genre']}")
+                st.markdown(f"**Imprint:** {detail['imprint']}")
+                st.markdown(f"**Pub Date:** {detail['pub_date']}")
+                st.markdown(f"**List Price:** ${detail['list_price']:.2f}")
+
+            with col2:
+                st.markdown(f"**Total Units Sold:** {detail['total_units_sold']:,}")
+                st.markdown(f"**Year 1:** {detail['units_year1']:,} | **Year 2:** {detail['units_year2']:,} | **Year 3:** {detail['units_year3']:,}")
+                st.markdown(f"**Net Revenue:** ${detail['net_revenue']:,.0f}")
+                st.markdown(f"**First Print Run:** {detail['first_print_run']:,}")
+                st.markdown(f"**NYT Weeks:** {detail['bestseller_weeks']}")
+                st.markdown(f"**Rights Sold:** {detail['rights_sold_territories']} territories")
+
+            st.markdown("**Content/Description:**")
+            st.info(detail.get("content", "No content available.")[:800])
+    else:
+        st.warning("Comp library folder not found. Run `python generate_fixed_comps.py` to create it.")
 
 # Show intro when nothing is generated yet
 if not st.session_state.generated and not generate_btn:
