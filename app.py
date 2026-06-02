@@ -33,33 +33,100 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("📚 Book Acquisition Document Generator")
-st.markdown("Generate a financial forecast and editorial recommendation for a book acquisition, powered by AI.")
+# Custom CSS for styling
+st.markdown("""
+<style>
+    /* Header styling */
+    .main-header {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        padding: 2rem 2rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        text-align: center;
+        color: white;
+    }
+    .main-header h1 {
+        color: white !important;
+        font-size: 2.2rem;
+        margin-bottom: 0.3rem;
+    }
+    .main-header p {
+        color: #a8b2d1;
+        font-size: 1.05rem;
+    }
+
+    /* Card styling for sections */
+    .metric-card {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1rem;
+        text-align: center;
+    }
+
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+
+    /* Table styling */
+    [data-testid="stDataFrame"] {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    /* Button styling */
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #0f3460 0%, #1a1a2e 100%);
+        border: none;
+    }
+
+    /* Divider */
+    .section-divider {
+        border-top: 2px solid #e9ecef;
+        margin: 2rem 0;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Header
+st.markdown("""
+<div class="main-header">
+    <h1>📚 Book Acquisition Document Generator</h1>
+    <p>AI-powered financial forecasting and editorial recommendations for publishing acquisitions</p>
+</div>
+""", unsafe_allow_html=True)
 
 # ─── Sidebar: Inputs ─────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.header("Book Details")
+    st.markdown("### 📖 Book Details")
+    st.markdown("---")
 
     title = st.text_input("Title", value="The Midnight Garden")
     author = st.text_input("Author", value="Elena Marchetti")
     genre = st.selectbox("Genre", GENRES, index=0)
 
-    st.header("Pricing & Print")
+    st.markdown("---")
+    st.markdown("### 💲 Pricing & Print")
+
     list_price_hc = st.number_input("Hardcover Price ($)", value=28.00, step=1.0)
     list_price_pb = st.number_input("Paperback Price ($)", value=17.00, step=1.0)
     first_print_run = st.number_input("First Print Run", value=25000, step=5000)
     marketing_budget = st.number_input("Marketing Budget ($)", value=50000, step=10000)
 
-    st.header("Book Description")
-    st.caption("Optional: paste a manuscript summary for better comp matching.")
+    st.markdown("---")
+    st.markdown("### 📝 Book Description")
+    st.caption("Paste a manuscript summary or jacket copy for better comp matching.")
     book_description = st.text_area(
         "Description",
         height=150,
         placeholder="A woman returns to her childhood home after her mother's death...",
+        label_visibility="collapsed",
     )
 
-    st.header("Settings")
+    st.markdown("---")
+    st.markdown("### ⚙️ Settings")
     use_ai = st.checkbox("Use AI (OpenAI API)", value=True)
     if use_ai:
         # Try to get key from Streamlit secrets first, then allow manual input
@@ -79,6 +146,25 @@ with st.sidebar:
 # Initialize session state
 if "generated" not in st.session_state:
     st.session_state.generated = False
+
+# Show intro when nothing is generated yet
+if not st.session_state.generated and not generate_btn:
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("""
+        <div style="text-align: center; padding: 3rem 1rem; color: #555;">
+            <p style="font-size: 4rem; margin-bottom: 0.5rem;">📖</p>
+            <h3>How It Works</h3>
+            <p>1. Enter book details in the sidebar</p>
+            <p>2. Optionally paste a book description for better results</p>
+            <p>3. Click <strong>Generate</strong> to create your acquisition document</p>
+            <br>
+            <p style="font-size: 0.85rem; color: #888;">
+                The AI selects comparable titles using semantic embeddings,<br>
+                generates a financial forecast, and writes an editorial recommendation.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
 if generate_btn:
     # Set API key if provided
@@ -120,11 +206,14 @@ if st.session_state.generated:
     selected_books = st.session_state.selected_books
     comps = st.session_state.comps
 
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     st.subheader("📖 Book Content")
     with st.expander("View generated/provided content", expanded=False):
         st.write(new_book_content)
 
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     st.subheader("📊 Comparable Titles (Selected by Similarity)")
+    st.caption("Top 5 titles from the comp library, ranked by semantic similarity to your book.")
 
     comp_data = []
     for b in selected_books:
@@ -219,6 +308,7 @@ if st.session_state.generated:
         )
         forecast = build_forecast(params, comps, ai_assumptions=ai_assumptions)
 
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     st.subheader("💹 5-Year Financial Forecast")
 
     # Key metrics
@@ -245,6 +335,7 @@ if st.session_state.generated:
 
     # ─── AI Recommendation ────────────────────────────────────────────────────
 
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     st.subheader("📝 Editorial Recommendation")
 
     recommendation = None
@@ -286,6 +377,7 @@ if st.session_state.generated:
 
     # ─── PDF Download ─────────────────────────────────────────────────────────
 
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     st.subheader("📄 Download PDF")
 
     with st.spinner("Rendering PDF..."):
@@ -324,8 +416,9 @@ if st.session_state.generated:
 
     # ─── Evaluation Section ───────────────────────────────────────────────────
 
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     st.subheader("🔬 Evaluation: Output Variability (10 Runs)")
-    st.caption("Runs the pipeline 10 times with the same inputs to measure how much the AI-driven outputs vary.")
+    st.caption("Runs the pipeline 10 times with the same inputs to measure how much the AI-driven outputs vary. This demonstrates that the LLM is actively generating each forecast.")
 
     if use_ai and api_key:
         run_eval = st.button("Run Variability Evaluation", use_container_width=True)
